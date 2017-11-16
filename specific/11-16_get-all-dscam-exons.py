@@ -25,7 +25,7 @@ def process_gtf_record(rec):
             info[parts[0]] = parts[1].strip('"')
     return info
 
-exons = [[]]*25 # DO NOT USE THE FIRST ELEMENT (exons[0])
+exons = [[] for _ in range(25)]
 # extract info from file
 with open(sys.argv[1]) as fin:
     for line in fin:
