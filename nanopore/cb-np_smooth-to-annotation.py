@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 # Script: "cb-np_smooth-to-annotation.py"
 # Requires: Python 3
@@ -225,8 +225,8 @@ arg_parser.add_argument('-q', '--quiet',
                               'various interesting statistics to STDERR.'))
 args = arg_parser.parse_args()
 
-alignment_header, aligned_reads = load_bed_file(args.alignment)
-_, reference = load_bed_file(args.annotation)
+alignment_header, aligned_reads = load_bed_file(args.alignments)
+_, reference = load_bed_file(args.annotations)
 
 # check the reference for validity (nothing should overlap)
 for i1 in range(len(reference)):
