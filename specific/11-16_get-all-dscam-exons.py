@@ -19,8 +19,10 @@ def process_gtf_record(rec):
     info['start'] = int(fields[3])-1 # conv to 0-based
     info['end'] = int(fields[4]) # no conversion needed
     for attr in fields[8].split(';'):
-        parts = attr.split(' ')
-        info[parts[0]] = parts[1].strip('"')
+        attr = attr.strip()
+        if attr:
+            parts = attr.split(' ')
+            info[parts[0]] = parts[1].strip('"')
     return info
 
 exons = [[]]*25 # DO NOT USE THE FIRST ELEMENT (exons[0])
