@@ -27,6 +27,9 @@ exons = [[]]*25 # DO NOT USE THE FIRST ELEMENT (exons[0])
 # extract info from file
 with open(sys.argv[1]) as fin:
     for line in fin:
+        line = line.rstrip()
+        if (not line) or line.startswith('#!'):
+            continue
         info = process_gtf_record(line)
         if (info['gene_name'] == 'Dscam1' and info['feature'] == 'exon'):
             interval = (info['start'], info['end'])
