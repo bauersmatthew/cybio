@@ -46,4 +46,4 @@ for exon_num, exon_vers in enumerate(exons):
     for ver_num, ver in enumerate(exon_vers):
         sys.stdout.write(
             '2R\t{start}\t{end}\t{exon}.{ver}\n'.format(
-                start=ver[0], end=ver[1], exon=exon_num, ver=ver_num))
+                start=ver[0], end=ver[1], exon=exon_num, ver=ver_num+1))
