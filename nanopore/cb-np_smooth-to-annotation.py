@@ -3,7 +3,7 @@
 # Script: "cb-np_smooth-to-annotation.py"
 # Requires: Python 3
 # Purpose: Due to the high error rate of nanopore sequencing, aligned reads
-#          often map imperfectly to the gene annotation. To make processing 
+#          often map imperfectly to the gene annotation. To make processing
 #          these alignments slightly easier, this script will try to fix obvious
 #          mistakes in the reads, such as tiny gaps or insertions.
 # Author: Matthew Bauer
@@ -73,6 +73,18 @@ class BEDRecord:
         else:
             return 'partial'
 
+    def get_overlap(self, other):
+        """Get the number of bases overlap between this record and another."""
+        if self.start <= other.start and self.end > other.start:
+            return self.end-other.start
+        elif other.start >= self.start and other.end > self.start:
+            return other.end-self.start
+        return 0
+
+    def get_coverage(self):
+        """Get the total number of bases covered by all blocks."""
+        sum([b[1]-b[0] for b in self.blocks])
+
 def load_bed_file(path):
     """Load the BED file with the given path."""
     records = []
@@ -86,107 +98,12 @@ def load_bed_file(path):
                 records.append(BEDRecord(line))
     return header, records
 
-class BinaryRegionalMask:
-    """A mask that is either "on" or "off" over an integer region."""
-    def __init__(self, on=[]):
-        self.on = copy.copy(on)
-        self._sort()
-
-    def get_on_intervals(self):
-        return copy.copy(self.on)
-
-    def get_coverage(self):
-        return sum(r[1]-r[0] for r in self.on)
-
-    def get_inverse(self):
-        ret = copy.copy(self)
-        ret.invert()
-        return ret
-
-    def invert(self):
-        """Invert the mask over the region containing all "on" intervals."""
-        new_on = []
-        for i in range(len(self.on)-1):
-            r1 = self.on[i]
-            r2 = self.on[i+1]
-            new_on.append((r1[1], r2[0]))
-        self.on = new_on
-
-    def grow_seeds(self, other):
-        """Grow all regions in this BRM that are subsets of regions in the other
-        BRM to be the same size of those regions of which they are subsets."""
-        to_add = []
-        for reg in other.on:
-            for seed in self.on:
-                if seed[0] >= reg[0] and seed[1] <= reg[1]:
-                    to_add.append(reg)
-                    break
-        for reg in to_add:
-            self += reg
-
-    def __add__(self, other):
-        """Add two masks together (like bitwise or).
-        Also works for mask and tuple."""
-        cpy = copy.copy(self)
-        if isinstance(other, tuple):
-            if len(other) != 2:
-                raise ValueError()
-            cpy.on.append(other)
-            cpy._sort()
-            while cpy._combine_right(): pass
-        else: # assume is a BinaryRegionalMask-like object
-            for r in other.on:
-                cpy += r
-        return cpy
-
-    def __sub__(self, other):
-        """Subtract one mask from another (like bitwise xor).
-        Also works for mask and tuple."""
-        cpy = copy.copy(self)
-        if isinstance(other, tuple):
-            if len(other) != 2:
-                raise ValueError()
-            new_on = []
-            for r in cpy.on:
-                if other[0] >= r[0] and other[0] < r[1]:
-                    # keep section on the left
-                    new_on.append((r[0], other[0]))
-                if other[1] > r[0] and other[1] <= r[1]:
-                    # keep section on the right
-                    new_on.append((other[1], r[1]))
-            cpy.on = new_on
-            cpy._remove_artifacts()
-        else: # assume is a BinaryRegionalMask-like object
-            for r in other.on:
-                cpy -= r
-        return cpy, n_removed
-
-    def _combine_right(self):
-        """Combine regions when necessary from left-to right ONE time.
-    
-        Assumes in correct order by starting position.
-        Return True if anything was changed; false otherwise."""
-        changed = False
-        for i in range(len(self.on)-1):
-            new_on = []
-            r1 = self.on[i]
-            r2 = self.on[i+1]
-            if r1[1] > r2[0]: # NOT EQUAL TO!
-                new_on.append((r1[0], max(r1[1], r2[1])))
-                changed = True
-            else:
-                new_on.append(r1)
-                new_on.append(r2)
-        self.on = new_on
-        return changed
-
-    def _sort(self):
-        """Sort in increasing order by starting position."""
-        self.on.sort(key=lambda x: x[0])
-
-    def _remove_artifacts(self):
-        """Remove empty ranges of the form (a, a)."""
-        self.on = [r for r in self.on if r[0] != r[1]]
+def get_most_overlapping(rec, test_recs):
+    """Get the record in test_recs that rec overlaps with most."""
+    most = max(test_recs, key=lambda tr: rec.overlap(tr))
+    if rec.overlap(most) == 0:
+        return None
+    return most
 
 def valid_file(p):
     """Raise an exception if p is not a valid file; otherwise, return p."""
@@ -254,48 +171,53 @@ for read in aligned_reads:
         sys.stdout.write('{}\n'.format(read))
 
 # process each annotated record; write output when done with each
-tot_removed = 0
-tot_removed_ratio = 0
-tot_added = 0
-tot_added_ratio = 0
-tot_netchange = 0
+tot_reads_killed = 0
+tot_bases_begin  = 0
+tot_bases_end    = 0
 for read in annotated:
-    read_brm = BinaryRegionalMask(read.blocks)
-    for gene in reference:
-        gene_brm = BinaryRegionalMask(gene.blocks)
-        # remove insertions in intron regions
-        cov_before = read_brm.get_coverage()
-        read_brm -= gene_brm.get_inverse()
-        cov_after = read_brm.get_coverage()
-        tot_removed += -(cov_after-cov_before)
-        tot_removed_ratio += -(cov_after-cov_before)/cov_before
-        tot_netchange += (cov_after-cov_before)
-        # fill in gaps in exon regions
-        cov_before = cov_after
-        read_brm.grow_seeds(gene_brm)
-        cov_after = read_brm.get_coverage()
-        tot_added += (cov_after-cov_before)
-        tot_added_ratio += (cov_after-cov_before)/cov_before
-        tot_netchange += (cov_after-cov_before)
-    read.blocks = read_brm.get_on_intervals()
-    sys.stdout.write('{}\n'.format(read))
+    tot_bases_begin += read.get_coverage()
+    gene = get_most_overlapping(read, reference)
+    if gene is None:
+        tot_reads_killed += none
+    found_blocks = []
+    for gb in gene.blocks:
+        for rb in read.blocks:
+            if ((rb[0] >= gb[0] and rb[0] < gb[1]) or
+                (rb[1] > gb[0] and rb[1] <= gb[1])):
+                found_blocks.append(gb)
+                break
+    if found_blocks:
+        tot_bases_end += read.get_coverage()-cov
+        read.blocks = found_blocks
+        read.start  = found_blocks[0][0]
+        read.end    = found_blocks[-1][1]
+        sys.stdout.write('{}\n'.format(read))
+    else:
+        tot_reads_killed += 1
 
 # maybe write statistics
 if not args.quiet:
-    n_total = len(aligned_reads)
-    n_annotated = len(annotated)
-    n_unannotated = n_total - n_annotated
-    sys.stderr.write('Totals...\n')
-    sys.stderr.write('\t{} annotated ({}%)\n'.format(
-        n_annotated, 100*n_annotated//n_total))
-    sys.stderr.write('\t{} unannotated ({}%)\n'.format(
-        n_unannotated, 100*n_unannotated//n_total))
-    sys.stderr.write('Processing averages...\n')
-    sys.stderr.write('\t{:.1f} bases removed ({:.1}% of read)\n'.format(
-        tot_removed/n_annotated, 100*tot_removed_ratio/n_annotated))
-    sys.stderr.write('\t{:.1f} bases added ({:.1}% of read)\n'.format(
-        tot_added/n_annotated, 100*tot_added_ratio/n_annotated))
-    sys.stderr.write('\t({:+.1f} bases net)\n'.format(
-        tot_netchange/n_annotated))
+    n_total         = len(aligned_reads)
+    n_annotated     = len(annotated)
+    n_unannotated   = n_total-n_annotated
+    n_bases_changed = tot_bases_end - tot_bases_start
+    say = sys.stderr.write
+    say('\t{} reads processed.\n'.format(
+        n_total))
+    say('\t{} annotated ({}%).\n'.format(
+        n_annotated,
+        int(100*n_annotated/n_total)))
+    say('\t{} unannotated ({}%).\n'.format(
+        n_unannotated,
+        int(100*n_unannotated/n_total)))
+    qualifier = 'added' if n_bases_changed >= 0 else 'removed'
+    say('\t{} bases {} overall ({}%; {} bases per read).\n'.format(
+        abs(n_bases_changed),
+        qualifier,
+        int(100*abs(n_bases_changed)/tot_bases_start),
+        int(abs(n_bases_changed)/n_annotated)))
+    say('\t{} annotated reads had no exons ({}%).'.format(
+        tot_reads_killed,
+        int(100*tot_reads_killed/n_annotated)))
 
 sys.exit(0)
