@@ -32,8 +32,8 @@ class BEDRecord:
         if l > 8: self.color = fields[8]
         if l > 9:
             n_blocks = int(fields[9])
-            block_sizes = [int(x) for x in fields[10][:n_blocks]]
-            block_starts = [int(x) for x in fields[11][:n_blocks]]
+            block_sizes = [int(x) for x in fields[10].split(',')[:n_blocks]]
+            block_starts = [int(x) for x in fields[11].split(',')[:n_blocks]]
             self.blocks = []
             for i in range(n_blocks):
                 self.blocks.append((block_starts[i],
