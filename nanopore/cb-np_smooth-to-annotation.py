@@ -41,7 +41,7 @@ class BEDRecord:
         else:
             self.blocks = [(self.start, self.end)]
 
-    def str(self):
+    def __str__(self):
         """Store this record as a single BED line (no newline)."""
         ret = '{}\t{}\t{}'.format(self.chrom, self.start, self.end)
         l = self.nfields
@@ -55,9 +55,10 @@ class BEDRecord:
             n_blocks = len(self.blocks)
             block_starts = [b[0] for b in self.blocks]
             block_sizes = [b[1]-b[0] for b in self.blocks]
-            ret += '\t{}\t{}\t{}'.format(n_blocks,
-                                         ','.join(block_sizes),
-                                         ','.join(block_starts))
+            ret += '\t{}\t{}\t{}'.format(
+                            n_blocks,
+                            ','.join(map(str, block_sizes)),
+                            ','.join(map(str, block_starts)))
         return ret
 
     def check_overlap(self, other):
@@ -77,13 +78,13 @@ class BEDRecord:
         """Get the number of bases overlap between this record and another."""
         if self.start <= other.start and self.end > other.start:
             return self.end-other.start
-        elif other.start >= self.start and other.end > self.start:
+        elif other.start <= self.start and other.end > self.start:
             return other.end-self.start
         return 0
 
     def get_coverage(self):
         """Get the total number of bases covered by all blocks."""
-        sum([b[1]-b[0] for b in self.blocks])
+        return sum([b[1]-b[0] for b in self.blocks])
 
 def load_bed_file(path):
     """Load the BED file with the given path."""
@@ -100,8 +101,8 @@ def load_bed_file(path):
 
 def get_most_overlapping(rec, test_recs):
     """Get the record in test_recs that rec overlaps with most."""
-    most = max(test_recs, key=lambda tr: rec.overlap(tr))
-    if rec.overlap(most) == 0:
+    most = max(test_recs, key=lambda tr: rec.get_overlap(tr))
+    if rec.get_overlap(most) == 0:
         return None
     return most
 
@@ -178,7 +179,8 @@ for read in annotated:
     tot_bases_begin += read.get_coverage()
     gene = get_most_overlapping(read, reference)
     if gene is None:
-        tot_reads_killed += none
+        tot_reads_killed += 1
+        continue
     found_blocks = []
     for gb in gene.blocks:
         for rb in read.blocks:
@@ -187,11 +189,13 @@ for read in annotated:
                 found_blocks.append(gb)
                 break
     if found_blocks:
-        tot_bases_end += read.get_coverage()-cov
-        read.blocks = found_blocks
-        read.start  = found_blocks[0][0]
-        read.end    = found_blocks[-1][1]
+        read.blocks     = found_blocks
+        read.start      = gene.start+found_blocks[0][0]
+        read.end        = gene.start+found_blocks[-1][1]
+        read.thickstart = read.start
+        read.thickend   = read.end
         sys.stdout.write('{}\n'.format(read))
+        tot_bases_end += read.get_coverage()
     else:
         tot_reads_killed += 1
 
@@ -200,23 +204,23 @@ if not args.quiet:
     n_total         = len(aligned_reads)
     n_annotated     = len(annotated)
     n_unannotated   = n_total-n_annotated
-    n_bases_changed = tot_bases_end - tot_bases_start
+    n_bases_changed = tot_bases_end - tot_bases_begin
     say = sys.stderr.write
-    say('\t{} reads processed.\n'.format(
+    say('{} reads processed.\n'.format(
         n_total))
-    say('\t{} annotated ({}%).\n'.format(
+    say('{} annotated ({}%).\n'.format(
         n_annotated,
         int(100*n_annotated/n_total)))
-    say('\t{} unannotated ({}%).\n'.format(
+    say('{} unannotated ({}%).\n'.format(
         n_unannotated,
         int(100*n_unannotated/n_total)))
     qualifier = 'added' if n_bases_changed >= 0 else 'removed'
-    say('\t{} bases {} overall ({}%; {} bases per read).\n'.format(
+    say('{} bases {} overall ({}%; {} bases per read).\n'.format(
         abs(n_bases_changed),
         qualifier,
-        int(100*abs(n_bases_changed)/tot_bases_start),
+        int(100*abs(n_bases_changed)/tot_bases_begin),
         int(abs(n_bases_changed)/n_annotated)))
-    say('\t{} annotated reads had no exons ({}%).'.format(
+    say('{} annotated reads had no exons ({}%).\n'.format(
         tot_reads_killed,
         int(100*tot_reads_killed/n_annotated)))
 
