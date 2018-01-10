@@ -37,18 +37,25 @@ arg_parser.add_argument('isoforms',
                         type=valid_file)
 arg_parser.add_argument('-t', '--test',
                         action='append', type=str, metavar='test_pair',
+                        default=[],
                         help=('A description of pairs to calculate '
                               'correlations for. Format: first|second. '
                               'This argument can be passed more '
                               'than once to describe multiple test pairs.'))
 arg_parser.add_argument('-T', '--test-regex',
                         action='append', type=str, metavar='test_pair',
+                        default=[],
                         help=('The same as -t/--test, but the first and second '
                               'strings are interpreted as REGEX expressions.'))
 arg_parser.add_argument('-x', '--xlsx',
                         action='store', type=str, metavar='output.xlsx',
                         help=('Write output to an XLSX file. TSV output will '
                               'be written to STDOUT.'))
+arg_parser.add_argument('-d', '--delim',
+                        action='store', type=str, default='|'
+                        help=('Set the delimiter that should be used to '
+                              'separate feature names in test strings. '
+                              'Default: |'))
 args = arg_parser.parse_args()
 
 # read isoform table; construct set of all features
@@ -67,24 +74,24 @@ with open(args.isoforms) as fin:
 
 # collect features of interest
 tests = set()
-if args.test is None: args.test = []
+def parse_teststr(t, use_regex):
+    sides = t.split(args.delim)
+    if len(sides) != 2:
+        sys.stderr.write('Improper test: \'{}\''.format(t))
+        sys.exit(-1)
+    if use_regex:
+        s0_matches = get_all_matches(features, sides[0])
+        s1_matches = get_all_matches(features, sides[1])
+        for s0m in s0_matches:
+            for s1m in s1_matches:
+                tests.add((s0m, s1m))
+    else:
+        test.add(tuple(sides))
+
 for t in args.test:
-    sides = t.split('|')
-    if len(sides) != 2:
-        sys.stderr.write('Improper test: \'{}\''.format(t))
-        sys.exit(-1)
-    tests.add(tuple(sides))
-if args.test_regex is None: args.test_regex = []
+    parse_teststr(t, False)
 for t in args.test_regex:
-    sides = t.split('|')
-    if len(sides) != 2:
-        sys.stderr.write('Improper test: \'{}\''.format(t))
-        sys.exit(-1)
-    s0_matches = get_all_matches(features, sides[0])
-    s1_matches = get_all_matches(features, sides[1])
-    for s0m in s0_matches:
-        for s1m in s1_matches:
-            tests.add((s0m, s1m))
+    parse_teststr(t, True)
 
 def get_isos_with_and_without(f, counts):
     """Get isoform count lines with and without the given feature."""
