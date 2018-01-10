@@ -88,9 +88,11 @@ def parse_teststr(t, use_regex):
         s1_matches = get_all_matches(features, sides[1])
         for s0m in s0_matches:
             for s1m in s1_matches:
-                if args.allow_identity_tests or s0m != s1m:
+                if ((args.allow_identity_tests or s0m != s1m)
+                    and (s1m, s0m) not in tests):
                     tests.add((s0m, s1m))
-    elif args.allow_identity_tests or sides[0] != sides[1]:
+    elif ((args.allow_identity_tests or sides[0] != sides[1])
+          and (sides[1], sides[0]) not in tests):
         test.add(tuple(sides))
 
 for t in args.test:
