@@ -56,6 +56,10 @@ arg_parser.add_argument('-d', '--delim',
                         help=('Set the delimiter that should be used to '
                               'separate feature names in test strings. '
                               'Default: |'))
+arg_parser.add_argument('-i', '--allow-identity-tests',
+                        action='store_true', default=False,
+                        help=('Allow identity tests e.g. \'F1|F1\' to be '
+                              ' performed. Default: ignore them.'))
 args = arg_parser.parse_args()
 
 # read isoform table; construct set of all features
@@ -84,8 +88,9 @@ def parse_teststr(t, use_regex):
         s1_matches = get_all_matches(features, sides[1])
         for s0m in s0_matches:
             for s1m in s1_matches:
-                tests.add((s0m, s1m))
-    else:
+                if args.allow_identity_tests or s0m != s1m:
+                    tests.add((s0m, s1m))
+    elif args.allow_identity_tests or sides[0] != sides[1]:
         test.add(tuple(sides))
 
 for t in args.test:
