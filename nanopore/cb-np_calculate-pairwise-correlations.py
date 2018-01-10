@@ -75,6 +75,7 @@ with open(args.isoforms) as fin:
             iso_counts.append((f, c))
             for feat in f:
                 features.add(feat)
+features = list(sorted(features))
 
 # collect features of interest
 tests = set()
