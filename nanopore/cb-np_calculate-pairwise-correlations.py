@@ -52,7 +52,7 @@ arg_parser.add_argument('-x', '--xlsx',
                         help=('Write output to an XLSX file. TSV output will '
                               'be written to STDOUT.'))
 arg_parser.add_argument('-d', '--delim',
-                        action='store', type=str, default='|'
+                        action='store', type=str, default='|',
                         help=('Set the delimiter that should be used to '
                               'separate feature names in test strings. '
                               'Default: |'))
@@ -154,7 +154,7 @@ pvals = []
 if args.xlsx is not None:
     from openpyxl import Workbook
     xlsx_wb = Workbook()
-for t in sorted(tests, key=lambda x: x[0]):
+for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
     inf = do_test(t)
     sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1], *inf))
     if xlsx_wb is not None:
