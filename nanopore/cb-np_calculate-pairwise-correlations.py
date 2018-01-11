@@ -178,7 +178,7 @@ for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
         sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1],
                                                                    *inf))
     else:
-        sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[0], *inf))
+        sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1], *inf))
     if xlsx_wb is not None:
         import openpyxl
         o_yy, o_yn, o_ny, o_nn = inf[:4]
