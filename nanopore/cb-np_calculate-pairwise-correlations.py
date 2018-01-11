@@ -60,6 +60,10 @@ arg_parser.add_argument('-i', '--allow-identity-tests',
                         action='store_true', default=False,
                         help=('Allow identity tests e.g. \'F1|F1\' to be '
                               ' performed. Default: ignore them.'))
+arg_parser.add_argument('--count-only',
+                        action='store_true', default=False,
+                        help=('Do not do any chi-squared analysis; simply '
+                              'output the counts (observed values).'))
 args = arg_parser.parse_args()
 
 # read isoform table; construct set of all features
@@ -133,6 +137,9 @@ def do_test(t):
     o_ny = count(no0yes1)
     o_nn = count(no0no1)
 
+    if args.count_only:
+        return o_yy, o_yn, o_ny, o_nn
+
     # row/column totals
     tot = o_yy+o_yn+o_ny+o_nn
     r1t = o_yy+o_ny
@@ -156,7 +163,10 @@ def do_test(t):
     return o_yy, o_yn, o_ny, o_nn, x2, p
 
 # conduct tests, print results
-sys.stdout.write('first\tsecond\tyes-yes\tyes-no\tno-yes\tno-no\tchi-sq\tp-value\n')
+sys.stdout.write('first\tsecond\tyes-yes\tyes-no\tno-yes\tno-no')
+if not args.count_only:
+    sys.stdout.write('\tchi-sq\tp-value')
+sys.stdout.write('\n')
 xlsx_wb = None
 pvals = []
 if args.xlsx is not None:
@@ -164,10 +174,16 @@ if args.xlsx is not None:
     xlsx_wb = Workbook()
 for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
     inf = do_test(t)
-    sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1], *inf))
+    if not args.count_only:
+        sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1],
+                                                                   *inf))
+    else:
+        sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[0], *inf))
     if xlsx_wb is not None:
         import openpyxl
-        o_yy, o_yn, o_ny, o_nn, x2, p = inf
+        o_yy, o_yn, o_ny, o_nn = inf[:4]
+        if not args.count_only:
+            x2, p = inf[4:]
         ws = xlsx_wb.create_sheet('{} vs {}'.format(*t))
         ws['A1'] = 'Feature 1'
         ws['B1'] = t[0]
@@ -190,36 +206,42 @@ for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
         ws['D6'] = o_ny
         ws['C7'] = o_yn
         ws['D7'] = o_nn
-        ws['A10'] = '\u03c7\u00b2' # X2
-        ws['B10'] = x2
-        ws['A11'] = 'P-val'
-        ws['B11'] = p
-        import openpyxl
-        fill = None
-        if p < 0.01:
-            fill = openpyxl.styles.colors.GREEN
-        elif p < 0.05:
-            fill = openpyxl.styles.colors.YELLOW
-        else:
-            fill = openpyxl.styles.colors.RED
-        ws['B11'].fill = openpyxl.styles.fills.PatternFill(patternType='solid',
-                                                           fgColor=fill)
-        pvals.append((ws.title, p))
+
+        if not args.count_only:
+            ws['A10'] = '\u03c7\u00b2' # X2
+            ws['B10'] = x2
+            ws['A11'] = 'P-val'
+            ws['B11'] = p
+            import openpyxl
+            fill = None
+            if p < 0.01:
+                fill = openpyxl.styles.colors.GREEN
+            elif p < 0.05:
+                fill = openpyxl.styles.colors.YELLOW
+            else:
+                fill = openpyxl.styles.colors.RED
+            ws['B11'].fill = openpyxl.styles.fills.PatternFill(
+                patternType='solid',
+                fgColor=fill)
+            pvals.append((ws.title, p))
 
 if xlsx_wb is not None:
     ws = xlsx_wb['Sheet']
     ws.title = 'Overview'
-    ws['A1'] = 'Pair'
-    ws['B1'] = 'P-val'
-    import openpyxl
-    for row in range(len(pvals)):
-        ws.cell(column=1, row=2+row).value = pvals[row][0]
-        ws.cell(column=2, row=2+row).value = pvals[row][1]
-        f = openpyxl.styles.colors.RED
-        if pvals[row][1] < 0.01:
-            f = openpyxl.styles.colors.GREEN
-        elif pvals[row][1] < 0.05:
-            f = openpyxl.styles.colors.YELLOW
-        ws.cell(column=2, row=2+row).fill = \
-            openpyxl.styles.fills.PatternFill(patternType='solid', fgColor=f)
+    if args.count_only:
+        ws['A1'] = 'P-values were not calculated.'
+    else:
+        ws['A1'] = 'Pair'
+        ws['B1'] = 'P-val'
+        import openpyxl
+        for row in range(len(pvals)):
+            ws.cell(column=1, row=2+row).value = pvals[row][0]
+            ws.cell(column=2, row=2+row).value = pvals[row][1]
+            f = openpyxl.styles.colors.RED
+            if pvals[row][1] < 0.01:
+                f = openpyxl.styles.colors.GREEN
+            elif pvals[row][1] < 0.05:
+                f = openpyxl.styles.colors.YELLOW
+            ws.cell(column=2, row=2+row).fill = \
+                openpyxl.styles.fills.PatternFill(patternType='solid', fgColor=f)
     xlsx_wb.save(args.xlsx)
