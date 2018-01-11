@@ -94,7 +94,7 @@ def parse_teststr(t, use_regex):
                     tests.add((s0m, s1m))
     elif ((args.allow_identity_tests or sides[0] != sides[1])
           and (sides[1], sides[0]) not in tests):
-        test.add(tuple(sides))
+        tests.add(tuple(sides))
 
 for t in args.test:
     parse_teststr(t, False)
