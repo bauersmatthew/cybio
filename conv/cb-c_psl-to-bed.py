@@ -8,6 +8,7 @@
 # Author: Matthew Bauer
 
 import sys
+from math import floor
 
 def parse_psl(line):
     """Parse one psl record. Return a dictionary of attributes."""
@@ -23,13 +24,15 @@ def parse_psl(line):
     ret['start'] = fields[15].strip()
     ret['end'] = fields[16].strip()
     ret['b_num'] = fields[17].strip()
+    ret['score'] = floor(1000*int(fields[0])
+                         //(int(fields[0])+int(fields[1]))) # 10*(% MATCHING)
 
     # block coordinates are weird; if on negative strand they are flipped
     l_sz = fields[18].strip().strip(',').split(',')
     if ret['strand'] == '-':
         l_sz = list(reversed(l_sz))
     ret['b_sizes'] = ','.join(l_sz)
-   
+
     l_st = []
     s = int(ret['start'])
     for x in fields[20].strip().strip(',').split(','):
@@ -53,9 +56,11 @@ def write_bed(info):
         return
     i = info
     sys.stdout.write(
-        '{c}\t{s}\t{e}\t{n}\t0\t{r}\t{s}\t{e}\t0,0,0\t{bc}\t{bz}\t{bs}\n'.format(
-            c=i['chrom'], s=i['start'], e=i['end'], r=i['strand'],
-            n=i['name'], bc=i['b_num'], bz=i['b_sizes'], bs=i['b_starts']))
+        ('{c}\t{s}\t{e}\t{n}\t{score}\t{r}'
+         '\t{s}\t{e}\t0,0,0\t{bc}\t{bz}\t{bs}\n').format(
+             c=i['chrom'], s=i['start'], e=i['end'], r=i['strand'],
+             n=i['name'], bc=i['b_num'], bz=i['b_sizes'], bs=i['b_starts'],
+             score=i['score']))
 
 if len(sys.argv) > 1:
     sys.stderr.write('Usage: cb-c_psl-to-bed.py < in.psl > out.bed\n')
