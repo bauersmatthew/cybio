@@ -24,8 +24,7 @@ def parse_psl(line):
     ret['start'] = fields[15].strip()
     ret['end'] = fields[16].strip()
     ret['b_num'] = fields[17].strip()
-    ret['score'] = floor(1000*int(fields[0])
-                         //(int(fields[0])+int(fields[1]))) # 10*(% MATCHING)
+    ret['score'] = ','.join(fields[:2]) # matches,mismatches
 
     # block coordinates are weird; if on negative strand they are flipped
     l_sz = fields[18].strip().strip(',').split(',')
