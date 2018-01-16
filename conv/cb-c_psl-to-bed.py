@@ -9,6 +9,7 @@
 
 import sys
 from math import floor
+import argparse
 
 def parse_psl(line):
     """Parse one psl record. Return a dictionary of attributes."""
@@ -54,6 +55,12 @@ def write_bed(info):
     if info is None:
         return
     i = info
+
+    # check the cutoff
+    match, mismatch = tuple(map(int, i['score'].split(',')))
+    if 100*match/(match+mismatch) < args.cutoff:
+        return
+
     sys.stdout.write(
         ('{c}\t{s}\t{e}\t{n}\t{score}\t{r}'
          '\t{s}\t{e}\t0,0,0\t{bc}\t{bz}\t{bs}\n').format(
@@ -61,9 +68,38 @@ def write_bed(info):
              n=i['name'], bc=i['b_num'], bz=i['b_sizes'], bs=i['b_starts'],
              score=i['score']))
 
-if len(sys.argv) > 1:
-    sys.stderr.write('Usage: cb-c_psl-to-bed.py < in.psl > out.bed\n')
-    sys.exit(0)
+def valid_file(p):
+    """Raise an exception if p is not a valid file; otherwise, return p."""
+    if not os.path.isfile(p):
+        raise RuntimeError("'{}' is not a valid input file!".format(p))
+    return p
 
-for line in sys.stdin:
+def valid_percent(f):
+    """Raise an exception if f is not a valid percent."""
+    f = float(f)
+    if f < 0.0 or f > 100.0
+        raise RuntimeError('{} is not between 0 and 100!'.format(f))
+    return f
+
+arg_parser = argparse.ArgumentParser(
+    description='Convert a PSL file to a BED file.',
+    epilog='Results are written to STDOUT.')
+arg_parser.add_argument('-V', '--version', action='version',
+                        version='%(prog)s 1.1.0')
+arg_parser.add_argument('-i', '--input',
+                        type=valid_file, metavar='in.psl',
+                        help=('The input PSL file. If not specified, input is '
+                              'read from STDIN.'))
+arg_parser.add_argument('-c', '--cutoff',
+                        type=valid_percent, metavar='%_matches', default=50.0,
+                        help=('The cutoff for % matches in the alignment; '
+                              'reads below this cutoff are discarded. '
+                              'Default: 50.0'))
+args = arg_parser.parse_args()
+
+fin = sys.stdin
+if args.input is not None:
+    fin = open(args.input)
+
+for line in fin:
     write_bed(parse_psl(line.strip()))
