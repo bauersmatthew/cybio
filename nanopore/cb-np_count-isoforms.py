@@ -152,10 +152,11 @@ group.add_argument('-b', '--blocked-annotation',
                          'BED record associated with it; exons should be '
                          'described using the exon blocks fields of the '
                          'record.'))
-group.add_argument('-c', '--cutoff',
-                   type=float, metavar='%_matches', default=50.0,
-                   help=('The cutoff for %% coverage in the feature below '
-                         'which the feature is not counted. Default: 50.0'))
+arg_parser.add_argument('-c', '--cutoff',
+                        type=float, metavar='%_matches', default=50.0,
+                        help=('The cutoff for %% coverage in the feature below '
+                              'which the feature is not counted. '
+                              'Default: 50.0'))
 args = arg_parser.parse_args()
 
 _, aligned_reads = load_bed_file(args.alignments)
