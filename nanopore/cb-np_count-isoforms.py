@@ -19,10 +19,11 @@ class BEDRecord:
         self.chrom = fields[0]
         self.start = int(fields[1])
         self.end = int(fields[2])
+        self.blocks = [(self.start, self.end)]
         l = len(fields)
         self.nfields = l
         if l > 3: self.name = fields[3]
-        if l > 4: self.score = int(fields[4])
+        if l > 4: self.score = fields[4]
         if l > 5: self.strand = fields[5]
         if l > 6: self.thickstart = int(fields[6])
         if l > 7: self.thickend = int(fields[7])
@@ -73,6 +74,50 @@ def load_bed_file(path):
                 records.append(BEDRecord(line))
     return header, records
 
+class CoveredRegion:
+    """A region that can have intervals added to it."""
+    def __init__(self, main_ivl):
+        self.mivl = main_ivl
+        self.ivls = []
+
+    def add(self, ivl):
+        """Add an interval."""
+        if ivl[1] < self.mivl[0] or ivl[0] > self.mivl[1]:
+            # outside the main range; do nothing
+            return
+        # cut down to size
+        if ivl[0] < self.mivl[0] and ivl[1] > self.mivl[0]:
+            ivl = (self.mivl[0], ivl[1])
+        if ivl[1] > self.mivl[1] and ivl[0] < self.mivl[1]:
+            ivl = (ivl[0], self.mivl[1])
+        # merge into list
+        to_merge = ivl
+        merged = True
+        while merged:
+            merged = False
+            for pos, i in enumerate(self.ivls):
+                if get_overlap_interval(to_merge, i) > 0:
+                    # merge them
+                    full = (min(to_merge[0], i[0]), max(to_merge[1], i[1]))
+                    # delete old
+                    del self.ivls[pos]
+                    # re-merge the new merged interval
+                    to_merge = full
+                    merged = True
+                    break
+                # else do nothing; check next
+        # add the merged interval back into the list; sort it
+        self.ivls.append(to_merge)
+        self.ivls.sort(key=lambda x: x[0])
+
+    def get_raw_coverage(self):
+        """Get the number of positions that are covered."""
+        return sum([i[1]-i[0] for i in self.ivls])
+
+    def get_percent_coverage(self):
+        """Get the percentage of positions that are covered."""
+        return 100*self.get_raw_coverage()/(self.mivl[1]-self.mivl[0])
+
 def valid_file(p):
     """Raise an exception if p is not a valid file; otherwise, return p."""
     if not os.path.isfile(p):
@@ -107,6 +152,10 @@ group.add_argument('-b', '--blocked-annotation',
                          'BED record associated with it; exons should be '
                          'described using the exon blocks fields of the '
                          'record.'))
+group.add_argument('-c', '--cutoff',
+                   type=float, metavar='%_matches', default=50.0,
+                   help=('The cutoff for %% coverage in the feature below '
+                         'which the feature is not counted. Default: 50.0'))
 args = arg_parser.parse_args()
 
 _, aligned_reads = load_bed_file(args.alignments)
@@ -134,10 +183,11 @@ tallies = {} # sorted tuple of names -> count
 for read in aligned_reads:
     found = []
     for f_name in features:
+        reg = CoveredRegion(features[f_name])
         for r_block in read.blocks:
-            if get_overlap_interval(r_block, features[f_name]) > 0:
-                if f_name not in found:
-                    found.append(f_name)
+            reg.add(r_block)
+        if reg.get_percent_coverage() >= args.cutoff:
+            found.append(f_name)
     if found:
         tup = tuple(sorted(found))
         if tup not in tallies:
