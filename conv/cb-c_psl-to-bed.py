@@ -10,6 +10,7 @@
 import sys
 from math import floor
 import argparse
+import os
 
 def parse_psl(line):
     """Parse one psl record. Return a dictionary of attributes."""
@@ -95,7 +96,7 @@ arg_parser.add_argument('-i', '--input',
                               'read from STDIN.'))
 arg_parser.add_argument('-c', '--cutoff',
                         type=valid_percent, metavar='%_matches', default=50.0,
-                        help=('The cutoff for % matches in the alignment; '
+                        help=('The cutoff for %% matches in the alignment; '
                               'reads below this cutoff are discarded. '
                               'Default: 50.0'))
 args = arg_parser.parse_args()
