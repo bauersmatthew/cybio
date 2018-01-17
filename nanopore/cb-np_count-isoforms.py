@@ -82,13 +82,13 @@ class CoveredRegion:
 
     def add(self, ivl):
         """Add an interval."""
-        if ivl[1] < self.mivl[0] or ivl[0] > self.mivl[1]:
+        if ivl[1] <= self.mivl[0] or ivl[0] >= self.mivl[1]:
             # outside the main range; do nothing
             return
         # cut down to size
-        if ivl[0] < self.mivl[0] and ivl[1] > self.mivl[0]:
+        if ivl[0] < self.mivl[0]:
             ivl = (self.mivl[0], ivl[1])
-        if ivl[1] > self.mivl[1] and ivl[0] < self.mivl[1]:
+        if ivl[1] > self.mivl[1]:
             ivl = (ivl[0], self.mivl[1])
         # merge into list
         to_merge = ivl
