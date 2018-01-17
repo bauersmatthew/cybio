@@ -25,7 +25,8 @@ def parse_psl(line):
     ret['start'] = fields[15].strip()
     ret['end'] = fields[16].strip()
     ret['b_num'] = fields[17].strip()
-    ret['score'] = ','.join(fields[:2]) # matches,mismatches
+    ret['score'] = floor(1000*int(fields[0])/(
+        int(fields[0])+int(fields[1]))) # "permille" matching
 
     # block coordinates are weird; if on negative strand they are flipped
     l_sz = fields[18].strip().strip(',').split(',')
@@ -57,8 +58,9 @@ def write_bed(info):
     i = info
 
     # check the cutoff
-    match, mismatch = tuple(map(int, i['score'].split(',')))
-    if 100*match/(match+mismatch) < args.cutoff:
+    pm_match = i['score']
+    pm_cutoff = floor(10*args.cutoff)
+    if pm_match < pm_cutoff:
         return
 
     sys.stdout.write(
@@ -77,13 +79,14 @@ def valid_file(p):
 def valid_percent(f):
     """Raise an exception if f is not a valid percent."""
     f = float(f)
-    if f < 0.0 or f > 100.0
+    if f < 0.0 or f > 100.0:
         raise RuntimeError('{} is not between 0 and 100!'.format(f))
     return f
 
 arg_parser = argparse.ArgumentParser(
     description='Convert a PSL file to a BED file.',
-    epilog='Results are written to STDOUT.')
+    epilog=('Results are written to STDOUT. The score field is set to '
+            'the \'permille\' match score of the alignment.'))
 arg_parser.add_argument('-V', '--version', action='version',
                         version='%(prog)s 1.1.0')
 arg_parser.add_argument('-i', '--input',
