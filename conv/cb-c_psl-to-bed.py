@@ -29,25 +29,11 @@ def parse_psl(line):
     ret['score'] = floor(1000*int(fields[0])/(
         int(fields[0])+int(fields[1]))) # "permille" matching
 
-    # block coordinates are weird; if on negative strand they are flipped
     l_sz = fields[18].strip().strip(',').split(',')
-    if ret['strand'] == '-':
-        l_sz = list(reversed(l_sz))
     ret['b_sizes'] = ','.join(l_sz)
 
-    l_st = []
     s = int(ret['start'])
-    for x in fields[20].strip().strip(',').split(','):
-        x_fix = int(x)
-        if ret['strand'] == '-':
-            x_fix = int(fields[14].strip()) - int(x)
-        x_fix -= s
-        l_st.append(str(x_fix))
-    if ret['strand'] == '-':
-        l_st = list(reversed(l_st))
-    if ret['strand'] == '-':
-        for i, v in enumerate(l_st):
-            l_st[i] = str(int(v)-int(l_sz[i]))
+    l_st = [str(int(x)-s) for x in fields[20].strip().strip(',').split(',')]
     ret['b_starts'] = ','.join(l_st)
 
     return ret
