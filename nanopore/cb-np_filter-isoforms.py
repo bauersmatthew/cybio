@@ -68,6 +68,7 @@ def filter_one(line):
         n = f[1:]
         if args.negate:
             s = '+' if s == '-' else '-'
+        found = None
         if args.regex:
             found = n in isos
         else:
