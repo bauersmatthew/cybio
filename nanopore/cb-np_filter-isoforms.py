@@ -9,12 +9,21 @@
 import argparse
 import sys
 import os.path
+import re
 
 def valid_file(p):
     """Raise an exception if p is not a valid file; otherwise, return p."""
     if not os.path.isfile(p):
         raise RuntimeError("'{}' is not a valid input file!".format(p))
     return p
+
+def match_in(l, q):
+    """Check if there exists a match in l to REGEX q."""
+    for x in l:
+        m = re.match(q, x)
+        if m is not None and m.start() == 0 and m.end() == len(x):
+            return True
+    return False
 
 arg_parser = argparse.ArgumentParser(
     description='Filter a table of isoforms.',
@@ -38,6 +47,9 @@ arg_parser.add_argument('-d', '--delim',
                         help=('Set the delimiter that should be usd to '
                               'separate features in the filter string. '
                               'Default: ;'))
+arg_parser.add_argument('-r', '--regex',
+                        action='store_true', default=False,
+                        help='Interpret the filter components as REGEXes.')
 args = arg_parser.parse_args()
 
 args.filter = args.filter.split(args.delim)
@@ -50,14 +62,17 @@ def filter_one(line):
     line = line.rstrip()
     if not line:
         return ''
+    isos = line.split('\t')[0].split(',')
     for f in args.filter:
         s = f[0]
         n = f[1:]
-        fields = line.split('\t')
-        isos = fields[0].split(',')
         if args.negate:
             s = '+' if s == '-' else '-'
-        if (s == '+' and n not in isos) or (s == '-' and n in isos):
+        if args.regex:
+            found = n in isos
+        else:
+            found = match_in(isos, n)
+        if (s == '+' and not found) or (s == '-' and found):
             # failed!
             return ''
     return line + '\n'
