@@ -69,7 +69,7 @@ def filter_one(line):
         if args.negate:
             s = '+' if s == '-' else '-'
         found = None
-        if args.regex:
+        if not args.regex:
             found = n in isos
         else:
             found = match_in(isos, n)
