@@ -10,6 +10,7 @@ import argparse
 import sys
 import os.path
 import re
+from operator import xor
 
 def valid_file(p):
     """Raise an exception if p is not a valid file; otherwise, return p."""
@@ -29,7 +30,7 @@ arg_parser = argparse.ArgumentParser(
     description='Filter a table of isoforms.',
     epilog='Results are written to STDOUT.')
 arg_parser.add_argument('-V', '--version', action='version',
-                        version='%(prog)s 1.0.0')
+                        version='%(prog)s 1.1.0')
 arg_parser.add_argument('isoforms',
                         type=valid_file,
                         help='The output file from cb-np_count-isoforms.py')
@@ -37,7 +38,12 @@ arg_parser.add_argument('filter',
                         type=str,
                         help=('The filter to be used. Format: \'A;B;C;...\' '
                               'where each component is \'[+-]feature\'. For '
-                              'example: \'+11.4;-13.1\'.'))
+                              'example: \'+11.4;-13.1\'. Basic (greedy) '
+                              'boolean logic can also be used with operators '
+                              '& (AND), | (OR), and ^ (XOR). For example: '
+                              '\'+12.1^+12.12\'. The delimiter (;) is like an '
+                              '& operator with parentheses surrounding its '
+                              'arguments.'))
 arg_parser.add_argument('-n', '--negate',
                         action='store_true', default=False,
                         help=('Keep isoforms that do NOT match to to the '
@@ -52,11 +58,51 @@ arg_parser.add_argument('-r', '--regex',
                         help='Interpret the filter components as REGEXes.')
 args = arg_parser.parse_args()
 
-args.filter = args.filter.split(args.delim)
+def tokenize(comp):
+    """Tokenize one filter component."""
+    l = []
+    growing = ''
+    for ch in comp:
+        if ch in ('&', '|', '^'):
+            l.append(growing)
+            l.append(ch)
+            growing = ''
+        else:
+            growing += ch
+    l.append(growing)
+    return tuple(l)
+
+def validate(tokens):
+    """Validate a tokenization.
+    Raise exception on failure; exit silently on success."""
+    for t in tokens[::2]:
+        if len(t) < 2 or t[0] not in ('+', '-'):
+            raise RuntimeError('Invalid filter token: \'{}\'!'.format(t))
+
+args.filter = tuple(tokenize(c) for c in args.filter.split(args.delim))
 for f in args.filter:
-    if len(f) < 2 or f[0] not in ('+', '-'):
-        sys.stderr.write('Invalid filter string!\n')
-        sys.exit(-1)
+    validate(f)
+
+def test_filter_component(iso, comp):
+    """Test whether the given isoform matches the given filter component."""
+    val = True
+    op = '&'
+    for i, tok in enumerate(comp):
+        if i%2 == 1:
+            op = tok
+        else:
+            sign = tok[0]
+            region = tok[1:]
+            if op == '&':
+                if sign == '+': val &= (region in iso)
+                else:           val &= (region not in iso)
+            if op == '|':
+                if sign == '+': val |= (region in iso)
+                else:           val |= (region not in iso)
+            if op == '^':
+                if sign == '+': val ^= (region in iso)
+                else:           val ^= (region not in iso)
+    return val
 
 def filter_one(line):
     line = line.rstrip()
@@ -64,19 +110,16 @@ def filter_one(line):
         return ''
     isos = line.split('\t')[0].split(',')
     for f in args.filter:
-        s = f[0]
-        n = f[1:]
-        if args.negate:
-            s = '+' if s == '-' else '-'
-        found = None
-        if not args.regex:
-            found = n in isos
-        else:
-            found = match_in(isos, n)
-        if (s == '+' and not found) or (s == '-' and found):
-            # failed!
-            return ''
-    return line + '\n'
+        t = test_filter_component(isos, f)
+        if not t:
+            if args.negate:
+                return line + '\n'
+            else:
+                return ''
+    if args.negate:
+        return ''
+    else:
+        return line + '\n'
 
 # read isoform table
 iso_counts = []
