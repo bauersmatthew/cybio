@@ -26,11 +26,18 @@ def match_in(l, q):
             return True
     return False
 
+def iso_contains(iso, region):
+    """Aware of the regex setting."""
+    if not args.regex:
+        return region in iso
+    else:
+        return match_in(iso, region)
+
 arg_parser = argparse.ArgumentParser(
     description='Filter a table of isoforms.',
     epilog='Results are written to STDOUT.')
 arg_parser.add_argument('-V', '--version', action='version',
-                        version='%(prog)s 1.1.0')
+                        version='%(prog)s 1.1.1')
 arg_parser.add_argument('isoforms',
                         type=valid_file,
                         help='The output file from cb-np_count-isoforms.py')
@@ -94,14 +101,14 @@ def test_filter_component(iso, comp):
             sign = tok[0]
             region = tok[1:]
             if op == '&':
-                if sign == '+': val &= (region in iso)
-                else:           val &= (region not in iso)
+                if sign == '+': val &= iso_contains(iso, region)
+                else:           val &= not iso_contains(iso, region)
             if op == '|':
-                if sign == '+': val |= (region in iso)
-                else:           val |= (region not in iso)
+                if sign == '+': val |= iso_contains(iso, region)
+                else:           val |= not iso_contains(iso, region)
             if op == '^':
-                if sign == '+': val ^= (region in iso)
-                else:           val ^= (region not in iso)
+                if sign == '+': val ^= iso_contains(iso, region)
+                else:           val ^= not iso_contains(iso, region)
     return val
 
 def filter_one(line):
