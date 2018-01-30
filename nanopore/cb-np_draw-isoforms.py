@@ -181,3 +181,4 @@ if args.template != ['']:
 for iso in isos:
     draw(iso, y)
     y -= args.height + args.spacing
+w('\\end{tikzpicture}')
