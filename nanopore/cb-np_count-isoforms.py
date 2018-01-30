@@ -9,6 +9,7 @@
 import argparse
 import sys
 import os.path
+import re
 
 class BEDRecord:
     """One record from a BED file."""
@@ -157,7 +158,27 @@ arg_parser.add_argument('-c', '--cutoff',
                         help=('The cutoff for %% coverage in the feature below '
                               'which the feature is not counted. '
                               'Default: 50.0'))
+arg_parser.add_argument('-C', '--cutoff-group',
+                        action='append', nargs=2, required=False,
+                        metavar=('pattern', 'cutoff'),
+                        help=('Define a cutoff group. The first argument '
+                              'is a REGEX pattern describing the features in '
+                              'the group. The second argument is the cutoff '
+                              'that should be applied to that group.'))
 args = arg_parser.parse_args()
+
+if args.cutoff_group is None:
+    args.cutoff_group = []
+for cg in args.cutoff_group:
+    cg[0] = re.compile(cg[0])
+    cg[1] = float(cg[1])
+def get_cutoff(feature):
+    """Get the cutoff requirement for the feature with the given name."""
+    for cg in args.cutoff_group:
+        if cg[0].fullmatch(feature) is not None:
+            return cg[1]
+    # not in a cutoff group
+    return args.cutoff
 
 _, aligned_reads = load_bed_file(args.alignments)
 reference_path = args.separated_annotation
@@ -187,7 +208,7 @@ for read in aligned_reads:
         reg = CoveredRegion(features[f_name])
         for r_block in read.blocks:
             reg.add(r_block)
-        if reg.get_percent_coverage() >= args.cutoff:
+        if reg.get_percent_coverage() >= get_cutoff(f_name):
             found.append(f_name)
     if found:
         tup = tuple(sorted(found))
