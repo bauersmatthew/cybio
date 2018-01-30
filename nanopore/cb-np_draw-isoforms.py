@@ -59,6 +59,12 @@ arg_parser.add_argument('-t', '--template',
                         help=('Comma-separated list of features to be shown '
                               'in the template. Default: do not show a '
                               'template.'))
+arg_parser.add_argument('-T', '--template-names',
+                        type=str, required=False, default='',
+                        help=('Names to be used for display in the '
+                              'template. Default: use the internal feature '
+                              'names. If given, must be a list the same '
+                              'length as given with --template.'))
 arg_parser.add_argument('-r', '--reverse',
                         action='store_true', default=False,
                         help=('Reverse the image (useful for showing the '
@@ -67,6 +73,11 @@ args = arg_parser.parse_args()
 
 args.bold = args.bold.split(',')
 args.template = args.template.split(',')
+tn = args.template_names.split(',')
+if args.template != [''] and tn != ['']:
+    args.template_names = {}
+    for i in range(len(tn)):
+        args.template_names[args.template[i]] = tn[i]
 
 # read the annotation
 features = {}
@@ -153,27 +164,33 @@ if args.template != ['']:
         draw_intron(name, name2, y)
         c_s = draw_coords[name][0]
         c_e = draw_coords[name][1]
+        draw_name = name
+        if args.template_names:
+            draw_name = args.template_names[name]
         if i%2 == 0:
             w('\\node[anchor=south, above] at ({},{}) {{{}}};'.format(
                 c_s+((c_e-c_s)/2), y+args.height,
-                name))
+                draw_name))
         else:
             w('\\node[anchor=north, below] at ({},{}) {{{}}};'.format(
                 c_s+((c_e-c_s)/2), y-args.height,
-                name))
+                draw_name))
 
     name = args.template[-1]
     draw_exon(name, y)
     c_s = draw_coords[name][0]
     c_e = draw_coords[name][1]
+    draw_name = name
+    if args.template_names:
+        draw_name = args.template_names[name]
     if (i+1)%2 == 0:
         w('\\node[anchor=south, above] at ({},{}) {{{}}};'.format(
             c_s+((c_e-c_s)/2), y+args.height,
-            name))
+            draw_name))
     else:
         w('\\node[anchor=north, below] at ({},{}) {{{}}};'.format(
             c_s+((c_e-c_s)/2), y-args.height,
-            name))
+            draw_name))
 
     y -= 3*(args.height + args.spacing)
 
