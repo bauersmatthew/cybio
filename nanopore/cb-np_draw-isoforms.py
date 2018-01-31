@@ -84,6 +84,9 @@ arg_parser.add_argument('-a', '--add-to-all',
                         help=('Add a feature to to ALL isoforms. Multiple '
                               'features can be added by passing this option '
                               'multiple times.'))
+arg_parser.add_argument('-n', '--limit',
+                        type=int, metavar='num',
+                        help='Draw only up to the given number of isoforms.')
 args = arg_parser.parse_args()
 
 args.bold = args.bold.split(',')
@@ -115,6 +118,8 @@ feats_present = set()
 with open(args.isoforms) as fin:
 
     lines = list(fin.readlines())
+    if args.limit is not None:
+        lines = lines[:args.limit]
     if args.template != ['']:
         lines.append('{}\t0'.format(','.join(args.template)))
 
