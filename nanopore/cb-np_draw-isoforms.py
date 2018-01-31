@@ -78,6 +78,12 @@ arg_parser.add_argument('-S', '--svg',
                               'only output the raw latex commands, starting '
                               'from \\begin{tikzpicture} and ending at '
                               '\\end{tikzpicture}.'))
+arg_parser.add_argument('-a', '--add-to-all',
+                        type=str, metavar='feature',
+                        action='append',
+                        help=('Add a feature to to ALL isoforms. Multiple '
+                              'features can be added by passing this option '
+                              'multiple times.'))
 args = arg_parser.parse_args()
 
 args.bold = args.bold.split(',')
@@ -87,6 +93,9 @@ if args.template != [''] and tn != ['']:
     args.template_names = {}
     for i in range(len(tn)):
         args.template_names[args.template[i]] = tn[i]
+
+if args.add_to_all is None:
+    args.add_to_all = []
 
 # read the annotation
 features = {}
@@ -114,7 +123,10 @@ with open(args.isoforms) as fin:
         if not line:
             continue
         f = line.split('\t')
-        has = tuple(f[0].split(','))
+        has = set(f[0].split(','))
+        for feature in args.add_to_all:
+            has.add(feature)
+        has = tuple(has)
         if(int(f[1]) != 0):
             isos.append((has, int(f[1])))
         for n in has:
