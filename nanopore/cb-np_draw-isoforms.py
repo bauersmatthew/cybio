@@ -9,6 +9,8 @@
 import argparse
 import sys
 import os.path
+import subprocess
+import os
 
 def valid_file(p):
     """Raise an exception if p is not a valid file; otherwise, return p."""
@@ -69,6 +71,13 @@ arg_parser.add_argument('-r', '--reverse',
                         action='store_true', default=False,
                         help=('Reverse the image (useful for showing the '
                               'antisense strand).'))
+arg_parser.add_argument('-S', '--svg',
+                        type=str, metavar='out.svg',
+                        help=('Compile the output as a standalone TikZ '
+                              'picture, producing an SVG file. Default: '
+                              'only output the raw latex commands, starting '
+                              'from \\begin{tikzpicture} and ending at '
+                              '\\end{tikzpicture}.'))
 args = arg_parser.parse_args()
 
 args.bold = args.bold.split(',')
@@ -128,6 +137,18 @@ for f in feats_present:
 
 # begin drawing
 w = lambda s: sys.stdout.write(s+'\n')
+fout = None
+if args.svg is not None:
+    fout = open(args.svg+'.tex', 'w')
+def w(s):
+    if fout is not None:
+        fout.write(s+'\n')
+    else:
+        sys.stdout.write(s+'\n')
+if fout is not None:
+    w('\\documentclass[tikz,convert={{outfile={}}}]{{standalone}}'.format(
+        args.svg))
+    w('\\begin{document}')
 w('\\begin{tikzpicture}')
 s = lambda l: sorted(l, key=lambda x: draw_coords[x][0])
 def draw_exon(name, y):
@@ -199,3 +220,12 @@ for iso in isos:
     draw(iso, y)
     y -= args.height + args.spacing
 w('\\end{tikzpicture}')
+
+if fout is not None:
+    w('\\end{document}')
+    fout.close()
+    subprocess.run(['pdflatex', '--shell-escape', '{}.tex'.format(args.svg)])
+    os.remove('{}.tex'.format(args.svg))
+    os.remove('{}.aux'.format(args.svg))
+    os.remove('{}.log'.format(args.svg))
+    os.remove('{}.pdf'.format(args.svg))
