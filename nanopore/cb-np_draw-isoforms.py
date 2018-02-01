@@ -87,6 +87,9 @@ arg_parser.add_argument('-a', '--add-to-all',
 arg_parser.add_argument('-n', '--limit',
                         type=int, metavar='num',
                         help='Draw only up to the given number of isoforms.')
+arg_parser.add_argument('-c', '--title',
+                        type=str,
+                        help='Add an identifying caption/title.')
 args = arg_parser.parse_args()
 
 args.bold = args.bold.split(',')
@@ -236,7 +239,15 @@ if args.template != ['']:
 for iso in isos:
     draw(iso, y)
     y -= args.height + args.spacing
+if args.title is not None:
+    w('\\node[anchor=north, below] at (0,{}) {{{}}};'.format(
+        y,
+        args.title))
 w('\\end{tikzpicture}')
+if args.title is not None:
+    w('\\begin{center}\n')
+    w('{}\n'.format(args.title))
+    w('\\end{center}')
 
 if fout is not None:
     w('\\end{document}')
