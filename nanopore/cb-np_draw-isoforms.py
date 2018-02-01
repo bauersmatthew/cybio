@@ -252,7 +252,8 @@ w('\\end{tikzpicture}')
 if fout is not None:
     w('\\end{document}')
     fout.close()
-    subprocess.call(['pdflatex', '--shell-escape', '{}.tex'.format(args.svg)])
+    subprocess.call(['pdflatex', '{}.tex'.format(args.svg)])
+    subprocess.call(['pdf2svg', '{}.pdf'.format(args.svg), args.svg])
     if not args.keep_files:
         os.remove('{}.tex'.format(args.svg))
         os.remove('{}.aux'.format(args.svg))
