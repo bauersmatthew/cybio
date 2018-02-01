@@ -90,6 +90,10 @@ arg_parser.add_argument('-n', '--limit',
 arg_parser.add_argument('-c', '--title',
                         type=str,
                         help='Add an identifying caption/title.')
+arg_parser.add_argument('-k', '--keep-files',
+                        action='store_true', default=False,
+                        help=('Do not delete latex non-svg files when using '
+                              '--svg.'))
 args = arg_parser.parse_args()
 
 args.bold = args.bold.split(',')
@@ -244,16 +248,13 @@ if args.title is not None:
         y,
         args.title))
 w('\\end{tikzpicture}')
-if args.title is not None:
-    w('\\begin{center}\n')
-    w('{}\n'.format(args.title))
-    w('\\end{center}')
 
 if fout is not None:
     w('\\end{document}')
     fout.close()
     subprocess.call(['pdflatex', '--shell-escape', '{}.tex'.format(args.svg)])
-    os.remove('{}.tex'.format(args.svg))
-    os.remove('{}.aux'.format(args.svg))
-    os.remove('{}.log'.format(args.svg))
-    os.remove('{}.pdf'.format(args.svg))
+    if not args.keep_files:
+        os.remove('{}.tex'.format(args.svg))
+        os.remove('{}.aux'.format(args.svg))
+        os.remove('{}.log'.format(args.svg))
+        os.remove('{}.pdf'.format(args.svg))
