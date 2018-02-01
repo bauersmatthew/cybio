@@ -160,6 +160,8 @@ for f in feats_present:
             -scaling*(c[0]-midpoint))
 
 # begin drawing
+exon_paths = []
+intron_paths = []
 w = lambda s: sys.stdout.write(s+'\n')
 fout = None
 if args.svg is not None:
@@ -178,15 +180,17 @@ s = lambda l: sorted(l, key=lambda x: draw_coords[x][0])
 def draw_exon(name, y):
     style = args.exon_style
     if name in args.bold: style = args.bold_style
-    w('\\draw[{}] ({},{}) rectangle ({},{});'.format(
-        style,
-        draw_coords[name][0], y+(args.height/2),
-        draw_coords[name][1], y-(args.height/2)))
+    exon_paths.append(
+        '\\draw[{}] ({},{}) rectangle ({},{});'.format(
+            style,
+            draw_coords[name][0], y+(args.height/2),
+            draw_coords[name][1], y-(args.height/2)))
 def draw_intron(e1n, e2n, y):
-    w('\\draw[{}] ({},{}) -- ({},{});'.format(
-        args.intron_style,
-        draw_coords[e1n][1], y,
-        draw_coords[e2n][0], y))
+    intron_paths.append(
+        '\\draw[{}] ({},{}) -- ({},{});'.format(
+            args.intron_style,
+            draw_coords[e1n][1], y,
+            draw_coords[e2n][0], y))
 def draw(iso, y):
     f = s(iso[0])
     for i in range(len(f)-1):
@@ -247,6 +251,10 @@ if args.title is not None:
     w('\\node[anchor=north, below] at (0,{}) {{{}}};'.format(
         y,
         args.title))
+for ip in intron_paths:
+    w(ip)
+for ep in exon_paths:
+    w(ep)
 w('\\end{tikzpicture}')
 
 if fout is not None:
