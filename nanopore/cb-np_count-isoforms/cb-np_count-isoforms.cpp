@@ -263,8 +263,13 @@ void load_annotation() {
         throw std::runtime_error("Annotation is empty!");
     NamedInterval prev = *(annotation.begin());
     for(auto it = std::next(annotation.begin()); it != annotation.end(); it++) {
-        if(cmp_ivls(prev, *it) != -1)
-            throw std::runtime_error("Annotation records overlap!");
+        if(cmp_ivls(prev, *it) != -1) {
+            std::stringstream ss;
+            ss
+                << "Annotation records overlap! (" << prev.name << " and "
+                << it->name << ")";
+            throw std::runtime_error(ss.str());
+        }
         prev = *it;
     }
 }
@@ -399,7 +404,7 @@ int main(int argc, char **argv) {
             final_count.begin(), final_count.end());
     std::sort(
             final_count_sorted.begin(), final_count_sorted.end(),
-            [](auto const& a, auto const& b){return a.second < b.second;});
+            [](auto const& a, auto const& b){return a.second > b.second;});
     for(auto const& p : final_count_sorted)
         std::cout << p.first << "\t" << p.second << std::endl;
 
