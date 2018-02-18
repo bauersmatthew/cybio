@@ -301,6 +301,9 @@ B ss_conv(A const& a) {
     B b;
     try {
         ss >> b;
+        if (!ss) {
+            throw MyErr("failed to convert: ", a);
+        }
         return b;
     }
     catch (std::ios_base::failure const& err) {
@@ -469,6 +472,9 @@ Percent::operator double() const {
 }
 std::istream& operator>>(std::istream& inp, Percent& p) {
     inp >> p.val;
+    if (p.val < 0.0 || p.val > 100.0) {
+        throw MyErr("invalid percent: ", p.val);
+    }
     return inp;
 }
 
