@@ -624,8 +624,11 @@ IsoformGenerator::Isoform IsoformGenerator::generate(Alignment const& alig) {
         }
     }
     std::sort(included.begin(), included.end());
-    for (std::string const& s : included) {
-        ret.repr += s;
+    auto it = included.begin();
+    ret.repr += *it;
+    for (it++; it != included.end(); it++) {
+        ret.repr += ",";
+        ret.repr += *it;
     }
     ret.good = true;
     return ret;
