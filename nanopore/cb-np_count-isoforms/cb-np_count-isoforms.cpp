@@ -623,12 +623,17 @@ IsoformGenerator::Isoform IsoformGenerator::generate(Alignment const& alig) {
             return ret;
         }
     }
+    if (included.empty()) {
+        ret.good = false;
+        return ret;
+    }
+
     std::sort(included.begin(), included.end());
-    auto it = included.begin();
-    ret.repr += *it;
-    for (it++; it != included.end(); it++) {
-        ret.repr += ",";
-        ret.repr += *it;
+    for (int i = 0; i < included.size(); i++) {
+        if (i != 0) {
+            ret.repr += ",";
+        }
+        ret.repr += included[i];
     }
     ret.good = true;
     return ret;
@@ -738,7 +743,7 @@ int main(int argc, char **argv) {
         std::vector<std::pair<std::string, unsigned int>> iso_table_sorted(
                 iso_table.begin(), iso_table.end());
         std::sort(iso_table_sorted.begin(), iso_table_sorted.end(),
-                [](auto const& a, auto const& b){return a.second < b.second;});
+                [](auto const& a, auto const& b){return a.second > b.second;});
         for (auto const& p : iso_table_sorted) {
             std::cout << p.first << '\t' << p.second << std::endl;
         }
