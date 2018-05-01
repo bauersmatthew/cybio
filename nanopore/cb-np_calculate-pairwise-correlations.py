@@ -11,6 +11,7 @@ import sys
 import os.path
 import re
 from scipy import stats
+from math import sqrt
 
 def get_all_matches(l, expr):
     """Get all full REGEX matches to expr in l."""
@@ -160,30 +161,34 @@ def do_test(t):
     x2 = x2_yy+x2_ny+x2_yn+x2_nn
     # compute p-value
     p = 1-stats.chi2.cdf(x2, 1)
-    return o_yy, o_yn, o_ny, o_nn, x2, p
+
+    # compute phi (effect size)
+    phi = sqrt(x2/tot)
+
+    return o_yy, o_yn, o_ny, o_nn, x2, p, phi
 
 # conduct tests, print results
 sys.stdout.write('first\tsecond\tyes-yes\tyes-no\tno-yes\tno-no')
 if not args.count_only:
-    sys.stdout.write('\tchi-sq\tp-value')
+    sys.stdout.write('\tchi-sq\tp-value\tphi')
 sys.stdout.write('\n')
 xlsx_wb = None
 pvals = []
+phivals = []
 if args.xlsx is not None:
     from openpyxl import Workbook
     xlsx_wb = Workbook()
 for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
     inf = do_test(t)
     if not args.count_only:
-        sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1],
-                                                                   *inf))
+        sys.stdout.write((('{}\t'*8)+'{}\n').format(t[0], t[1], *inf))
     else:
         sys.stdout.write('{}\t{}\t{}\t{}\t{}\t{}\n'.format(t[0], t[1], *inf))
     if xlsx_wb is not None:
         import openpyxl
         o_yy, o_yn, o_ny, o_nn = inf[:4]
         if not args.count_only:
-            x2, p = inf[4:]
+            x2, p, phi = inf[4:]
         ws = xlsx_wb.create_sheet('{} vs {}'.format(*t))
         ws['A1'] = 'Feature 1'
         ws['B1'] = t[0]
@@ -212,6 +217,8 @@ for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
             ws['B10'] = x2
             ws['A11'] = 'P-val'
             ws['B11'] = p
+            ws['A12'] = '\u03d5' # phi
+            ws['B12'] = phi
             import openpyxl
             fill = None
             if p < 0.01:
@@ -223,7 +230,18 @@ for t in sorted(sorted(tests, key=lambda x: x[1]), key=lambda y: y[0]):
             ws['B11'].fill = openpyxl.styles.fills.PatternFill(
                 patternType='solid',
                 fgColor=fill)
-            pvals.append((ws.title, p))
+            pvals.append((ws.title, p, fill))
+            phi_fill = None
+            if phi > .5:
+                phi_fill = openpyxl.styles.colors.GREEN
+            elif phi > .3:
+                phi_fill = openpyxl.styles.colors.YELLOW
+            else:
+                phi_fill = openpyxl.styles.colors.RED
+            ws['B12'].fill = openpyxl.styles.fills.PatternFill(
+                patternType='solid',
+                fgColor=phi_fill)
+            phivals.append((ws.title, phi, phi_fill))
 
 if xlsx_wb is not None:
     ws = xlsx_wb['Sheet']
@@ -233,15 +251,16 @@ if xlsx_wb is not None:
     else:
         ws['A1'] = 'Pair'
         ws['B1'] = 'P-val'
+        ws['C1'] = '\u03d5' # phi
         import openpyxl
         for row in range(len(pvals)):
             ws.cell(column=1, row=2+row).value = pvals[row][0]
             ws.cell(column=2, row=2+row).value = pvals[row][1]
-            f = openpyxl.styles.colors.RED
-            if pvals[row][1] < 0.01:
-                f = openpyxl.styles.colors.GREEN
-            elif pvals[row][1] < 0.05:
-                f = openpyxl.styles.colors.YELLOW
             ws.cell(column=2, row=2+row).fill = \
-                openpyxl.styles.fills.PatternFill(patternType='solid', fgColor=f)
+                openpyxl.styles.fills.PatternFill(patternType='solid',
+                                                  fgColor=pvals[row][2])
+            ws.cell(column=3, row=2+row).value = phivals[row][1]
+            ws.cell(column=3, row=2+row).fill = \
+                openpyxl.styles.fills.PatternFill(patternType='solid',
+                                                  fgColor=phivals[row][2])
     xlsx_wb.save(args.xlsx)
